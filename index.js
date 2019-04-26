@@ -1,15 +1,33 @@
-function FesionWebpackPlugin() {}
+const crypto = require("crypto");
+
+const path = require("path");
+function FesionWebpackPlugin(options) {
+    this.options = options;
+}
 FesionWebpackPlugin.prototype.apply = function(compiler) {
-    //我们主要关注 compilation 阶段，即 webpack 打包阶段
+    const options = this.options;
+    let fileTypes = options.fileTypes;
+    if (!fileTypes) {
+        fileTypes = ["js", "css", "html"];
+    }
     compiler.plugin("emit", function(compilation, callback) {
         const filelist = [];
-        //compilation.assets 和 compilation.chunks 前面已经说过
-        for (var filename in compilation.assets) {
-            filelist.push({ path: filename });
+        for (let filename in compilation.assets) {
+            const extname = path.extname(filename).replace(".", "");
+            if (fileTypes.indexOf(extname) === -1) {
+                continue;
+            }
+            const source = compilation.assets[filename].source();
+            const size = compilation.assets[filename].size();
+            const hash = crypto.createHash("md5");
+            hash.update(source);
+            const md5 = hash.digest("hex");
+            filelist.push({ path: filename, md5, size });
         }
-        const fileStr = JSON.stringify(filelist);
+        const date = new Date();
+        const fileStr = JSON.stringify({ date: date.toLocaleString(), timestamp: date.getTime(), filelist });
         //在 compilation.assets 中添加需要的资源
-        compilation.assets["filelist.md"] = {
+        compilation.assets["filelist.json"] = {
             source: function() {
                 return fileStr;
             },
